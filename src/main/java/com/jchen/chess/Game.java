@@ -1,18 +1,16 @@
 package com.jchen.chess;
 
-import com.jchen.chess.pieces.King;
-import com.jchen.chess.pieces.Pawn;
-import com.jchen.chess.pieces.Piece;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.util.Collection;
 
 public class Game extends JPanel implements MouseListener {
 
-    private Piece[][] pieces;
-    Piece selectedPiece;
+    private Board board;
+    private Point selectedPoint;
+    private char currentColor;
 
     public static void main(String[] args) {
         Game game = new Game();
@@ -23,19 +21,13 @@ public class Game extends JPanel implements MouseListener {
     }
 
     public Game() {
-        pieces = new Piece[8][8];
-        selectedPiece = null;
-        for (int i = 0; i < 8; i++) {
-            new Pawn(this, new Point(i, 1), Color.WHITE);
-        }
-        new King(this, new Point(4, 0), Color.WHITE);
-
-        for (int i = 0; i < 8; i++) {
-            new Pawn(this, new Point(i, 6), Color.BLACK);
-        }
-        new King(this, new Point(4, 7), Color.BLACK);
+        selectedPoint = null;
         addMouseListener(this);
         setVisible(true);
+        board = new Board();
+        new Timer(0, e -> repaint()).start();
+        currentColor = 'b';
+        board.bestMove('w');
     }
 
     @Override
@@ -43,56 +35,78 @@ public class Game extends JPanel implements MouseListener {
         return new Dimension(45 * 8, 45 * 8);
     }
 
-    public Piece[][] getPieces() {
-        return pieces;
-    }
-
-    public Game setPieces(Piece[][] pieces) {
-        this.pieces = pieces;
-        return this;
-    }
-
     @Override
     public void paint(Graphics g) {
         super.paint(g);
         Graphics2D graphics = (Graphics2D) g;
+
         graphics.setColor(Color.WHITE);
 
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces.length; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                int x = i * 45;
+                int y = j * 45;
                 graphics.fillRect(i * 45, j * 45, 45, 45);
-                graphics.setColor(graphics.getColor().equals(Color.GREEN) ? Color.WHITE: Color.GREEN);
+                Piece piece = board.get(new Point(i, 7-j));
+                if (!piece.isColor('n'))
+                    graphics.drawImage(piece.getImage(), x, y, null);
+                graphics.setColor(graphics.getColor().equals(Color.GREEN) ? Color.WHITE : Color.GREEN);
             }
-            graphics.setColor(graphics.getColor().equals(Color.GREEN) ? Color.WHITE: Color.GREEN);
+            graphics.setColor(graphics.getColor().equals(Color.GREEN) ? Color.WHITE : Color.GREEN);
         }
 
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces.length; j++) {
-                Piece piece = pieces[i][j];
-                if (piece != null) {
-                    graphics.drawImage(piece.getSprite(), i * 45, getPreferredSize().height - (j+1) * 45, null);
-                }
-            }
-        }
-        if (selectedPiece != null) {
-            Point position = selectedPiece.getPosition();
+        if (selectedPoint != null) {
+            double x = selectedPoint.x * 45;
+            double y = selectedPoint.y * 45;
             graphics.setColor(Color.RED);
-            graphics.drawOval(position.x * 45, getPreferredSize().height - (position.y + 1) * 45, 45, 45);
+            graphics.drawOval((int) x, (int) ((45 * 7) - y), 45, 45);
         }
     }
 
     @Override
     public void mouseClicked(MouseEvent e) {
-        Point position = e.getPoint();
-        int x = Math.floorDiv(position.x, 45);
-        int y = Math.floorDiv((getPreferredSize().height - position.y), 45);
-        Point actual = new Point(x, y);
-        if (selectedPiece != null && selectedPiece.move(actual)) {
-            repaint();
-            return;
+        Point clicked = e.getPoint();
+        Point scaled = new Point(Math.floorDiv(clicked.x, 45), 7 - Math.floorDiv(clicked.y, 45));
+        if (selectedPoint != null) {
+            if (board.get(selectedPoint).isColor(currentColor)) {
+                Collection<Point> moves = board.getMoves(selectedPoint);
+                boolean canMove = moves.contains(scaled);
+                boolean rookCheck = board.get(scaled).isType('r') && board.get(scaled).isColor(currentColor);
+                boolean cCheck = moves.contains(new Point(-1, 0)) || moves.contains(new Point(0, -1));
+
+                if (canMove || (rookCheck && cCheck)) {
+                    board = board.next();
+                    if (cCheck) {
+                       if (scaled.x > selectedPoint.x) {
+                            board.move(selectedPoint, new Point(0, -1));
+                       } else  {
+                           board.move(selectedPoint, new Point(-1, 0));
+                       }
+                        selectedPoint = scaled;
+                    } else {
+                        board.move(selectedPoint, scaled);
+                        selectedPoint = scaled;
+                    }
+                    if (board.check(currentColor)) {
+                        board = board.getPrevious();
+                    } else {
+                        selectedPoint = scaled;
+                        paint(getGraphics());
+                        board.bestMove('w');
+                        if (board.checkmate(currentColor)) {
+                            System.out.println("checkmate");
+                        }
+                    }
+                    System.out.printf("Black evaluation: %f\n", board.evaluate('b'));
+                    System.out.printf("White evaluation: %f\n", board.evaluate('w'));
+                    System.out.println();
+                }
+            }
         }
-        selectedPiece = pieces[x][y];
-        repaint();
+        Piece piece = board.get(scaled);
+        if (piece != null && !piece.isColor('n')) {
+            selectedPoint = scaled;
+        }
     }
 
     @Override
@@ -113,47 +127,5 @@ public class Game extends JPanel implements MouseListener {
     @Override
     public void mouseExited(MouseEvent e) {
 
-    }
-
-    public int squareStatus(int x, int y, Color color) {
-        if (x >= pieces.length || x < 0 || y >= pieces[x].length || y < 0) {
-            return -2;
-        } else if (pieces[x][y] != null) {
-            if (pieces[x][y].getColor().equals(color)) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
-        return 2;
-    }
-
-    public boolean check(Color color) {
-        for (Piece[] row: pieces) {
-            for (Piece piece: row) {
-                if (piece != null && !piece.getColor().equals(color)) {
-                    for (Point point : piece.getMoves()) {
-                        Piece attacked = pieces[point.x][point.y];
-                        if (attacked != null && attacked.getColor().equals(color) && attacked instanceof King){
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    public boolean isAttacked(Point point, Color color) {
-        for (Piece[] row: pieces) {
-            for (Piece piece: row) {
-                if (piece != null && !piece.getColor().equals(color)) {
-                    if (piece.attacks(point)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
     }
 }
