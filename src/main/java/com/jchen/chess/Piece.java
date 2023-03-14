@@ -63,8 +63,6 @@ public class Piece {
                 return 5;
             case 'q':
                 return 9;
-            case 'k':
-                return 100;
             default:
                 return 0;
         }

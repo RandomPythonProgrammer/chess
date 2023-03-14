@@ -26,7 +26,8 @@ public class Game extends JPanel implements MouseListener {
         setVisible(true);
         board = new Board();
         new Timer(0, e -> repaint()).start();
-        currentColor = 'w';
+        currentColor = 'b';
+        board.bestMove('w');
     }
 
     @Override
@@ -81,17 +82,24 @@ public class Game extends JPanel implements MouseListener {
                        } else  {
                            board.move(selectedPoint, new Point(-1, 0));
                        }
+                        selectedPoint = scaled;
                     } else {
                         board.move(selectedPoint, scaled);
+                        selectedPoint = scaled;
                     }
                     if (board.check(currentColor)) {
                         board = board.getPrevious();
                     } else {
-                        currentColor = Board.invert(currentColor);
+                        selectedPoint = scaled;
+                        paint(getGraphics());
+                        board.bestMove('w');
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");
                         }
                     }
+                    System.out.printf("Black evaluation: %f\n", board.evaluate('b'));
+                    System.out.printf("White evaluation: %f\n", board.evaluate('w'));
+                    System.out.println();
                 }
             }
         }
