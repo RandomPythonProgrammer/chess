@@ -14,6 +14,8 @@ public class Board {
     private Board previous;
     private Point wKing;
     private Point bKing;
+    private boolean brc, blc;
+    private boolean wrc, wlc;
     private static final java.util.List<Point> knight = java.util.List.of(
             new Point(2, 1),
             new Point(2, -1),
@@ -52,6 +54,10 @@ public class Board {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        blc = true;
+        brc = true;
+        wlc = true;
+        wrc = true;
     }
 
     public Board(Board previous) {
@@ -64,6 +70,10 @@ public class Board {
         }
         bKing = previous.bKing;
         wKing = previous.wKing;
+        blc = previous.blc;
+        brc = previous.brc;
+        wlc = previous.wlc;
+        wrc = previous.wrc;
     }
 
     public Board getPrevious() {
@@ -237,11 +247,19 @@ public class Board {
                     }
                 }
             }
-            if (get(new Point(0, y)).isType('r') && get(new Point(1, y)).isColor('n') && get(new Point(2, y)).isColor('n') && get(new Point(3, y)).isColor('n')) {
-                moves.add(new Point(-1, 0));
+            boolean check = check(color);
+            boolean canLeft = (color == 'b' ? blc : wlc);
+            boolean canRight = (color == 'b' ? brc : wrc);
+
+            if (!check && canLeft && pieces[0][y].isType('r') && pieces[1][y].isColor('n') && pieces[2][y].isColor('n') && pieces[3][y].isColor('n')) {
+                if (!next().move(new Point(x, y), new Point(x-1, y)).check(color))
+                    if (!next().move(new Point(x-1, y), new Point(x-2, y)).check(color))
+                            moves.add(new Point(-1, 0));
             }
-            if (get(new Point(7, y)).isType('r') && get(new Point(5, y)).isColor('n') && get(new Point(6, y)).isColor('n')) {
-                moves.add(new Point(0, -1));
+            if (!check && canRight && pieces[7][y].isType('r') && pieces[5][y].isColor('n') && pieces[6][y].isColor('n')) {
+                if (!next().move(new Point(x, y), new Point(x+1, y)).check(color))
+                    if (!next().move(new Point(x+1, y), new Point(x+2, y)).check(color))
+                            moves.add(new Point(0, -1));
             }
         }
 
@@ -249,6 +267,7 @@ public class Board {
     }
 
     public Board move(Point origin, Point dest) {
+        Piece piece = pieces[origin.x][origin.y];
         if (dest.x == -1 || dest.y == -1) {
             int y = origin.y;
             if (dest.x < 0) {
@@ -259,12 +278,15 @@ public class Board {
                 move(new Point(7, y), new Point(5, y));
             }
         } else {
-            Piece piece = pieces[origin.x][origin.y];
             if (piece.isType('k')) {
                 if (piece.isColor('w')) {
                     wKing = dest;
+                    wrc = false;
+                    wlc = false;
                 } else {
                     bKing = dest;
+                    brc = false;
+                    blc = false;
                 }
             }
             Piece destP = pieces[dest.x][dest.y];
@@ -274,6 +296,24 @@ public class Board {
                 } else {
                     bKing = null;
                 }
+            }
+            if (piece.isType('r')) {
+                if (origin.x == 0) {
+                    if (piece.isColor('w')) {
+                        wlc = false;
+                    } else {
+                        blc = false;
+                    }
+                } else {
+                    if (piece.isColor('w')) {
+                        wrc = false;
+                    } else {
+                        brc = false;
+                    }
+                }
+            }
+            if (piece.isType('p') && (dest.y == 0 || dest.y == 7)) {
+                pieces[origin.x][origin.y] = new Piece(piece.getColor(), 'q');
             }
             set(dest, get(origin));
             set(origin, new Piece('n', 'a'));
@@ -290,8 +330,12 @@ public class Board {
             for (int jj = 0; jj < pieces[ii].length; jj++) {
                 if (ii != i || jj != j) {
                     Piece attacker = pieces[ii][jj];
-                    if (attacker.isColor(invert(color)) && getMoves(ii, jj).contains(new Point(i, j))) {
-                        return true;
+                    if (!attacker.isType('k')) {
+                        if (attacker.isColor(invert(color)) && getMoves(ii, jj).contains(new Point(i, j))) {
+                            return true;
+                        }
+                    } else if (Math.abs(ii - i) <= 1 && Math.abs(jj - j) <= 1) {
+                            return true;
                     }
                 }
             }
@@ -380,7 +424,8 @@ public class Board {
                     for (Point move: getMoves(point)) {
                         waiting++;
                         ForkJoinPool.commonPool().execute(() -> {
-                            double value = evaluateTree(next().move(point, move), color, invert(color), 1, 5);
+                            double current = evaluate(color)/evaluate(invert(color));
+                            double value = evaluateTree(next().move(point, move), current, color, invert(color), 1, 4);
                             moves.put(new Move(point, move), value);
                             done.incrementAndGet();
                         });
@@ -402,11 +447,12 @@ public class Board {
         move(highest.getKey().start, highest.getKey().end);
     }
 
-    public static double evaluateTree(Board board, char oColor, char color, int depth, int maxDepth) {
-        double mean = 0;
-        double samples = 0;
-        if (depth >= maxDepth) {
-            return board.evaluate(oColor);
+    public static double evaluateTree(Board board, double last, char oColor, char color, int depth, int maxDepth) {
+        boolean isColor = color == oColor;
+        double val = board.evaluate(oColor)/board.evaluate(invert(oColor));
+        double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
+        if (depth >= maxDepth || val/last < 0.75) {
+            return val;
         }
 
         for (int i = 0; i < 8; i++) {
@@ -415,13 +461,13 @@ public class Board {
                 Piece piece = board.pieces[i][j];
                 if (piece.isColor(color)) {
                     for (Point move: board.getMoves(i, j)) {
-                        mean += evaluateTree(board.next().move(point, move), oColor, invert(color), depth + 1, maxDepth);
-                        samples++;
+                        double eval = evaluateTree(board.next().move(point, move), val, oColor, invert(color), depth + 1, maxDepth);
+                        value = (isColor ? Math.max(eval, value) : Math.min(eval, value));
                     }
                 }
             }
         }
-        return samples == 0 ? 0 : mean/samples;
+        return value;
     }
 }
 class Move {
