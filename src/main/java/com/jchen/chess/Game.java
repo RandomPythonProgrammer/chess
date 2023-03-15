@@ -2,6 +2,7 @@ package com.jchen.chess;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.Collection;
@@ -23,6 +24,15 @@ public class Game extends JPanel implements MouseListener {
     public Game() {
         selectedPoint = null;
         addMouseListener(this);
+        getInputMap().put(KeyStroke.getKeyStroke('z'), "undo");
+        getActionMap().put("undo", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (board.getPrevious() != null) {
+                    board = board.getPrevious();
+                }
+            }
+        });
         setVisible(true);
         board = new Board();
         new Timer(0, e -> repaint()).start();
@@ -91,8 +101,7 @@ public class Game extends JPanel implements MouseListener {
                     } else {
                         selectedPoint = scaled;
                         paint(getGraphics());
-//                        board.bestMove('b');
-                        currentColor = Board.invert(currentColor);
+                        board.bestMove('b');
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");
                         }

@@ -418,7 +418,8 @@ public class Board {
     }
 
     public double evaluate(char color) {
-        if (getKing(color) == null) {
+        double activePieces = 0;
+        if (getKing(color) == null || checkmate(color)) {
             return -100;
         }
         double value = 0;
@@ -429,10 +430,15 @@ public class Board {
                 if (piece.isColor(color)) {
                     value += piece.getValue();
                     vision += getMoves(i, j).size();
+                    if (!piece.isType('p')) {
+                        if (vision > 2) {
+                            activePieces++;
+                        }
+                    }
                 }
             }
         }
-        return value + vision * 0.01;
+        return value + vision * 0.05 + activePieces;
     }
 
     public void bestMove(char color) {
