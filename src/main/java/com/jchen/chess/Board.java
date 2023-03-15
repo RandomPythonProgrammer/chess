@@ -10,8 +10,20 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Board {
-    Piece[][] pieces;
-    Board previous;
+    private Piece[][] pieces;
+    private Board previous;
+    private Point wKing;
+    private Point bKing;
+    private static final java.util.List<Point> knight = java.util.List.of(
+            new Point(2, 1),
+            new Point(2, -1),
+            new Point(1, 2),
+            new Point (-1, 2),
+            new Point(-2, 1),
+            new Point(-2, -1),
+            new Point(1, -2),
+            new Point(-1, -2)
+    );
 
     public Board() {
         previous = null;
@@ -22,7 +34,16 @@ public class Board {
                 for (int j = 0; j < pieces[i].length; j++) {
                     char[] buffer = new char[3];
                     reader.read(buffer);
-                    pieces[j][i] = new Piece(buffer);
+                    Piece piece = new Piece(buffer);
+                    if (piece.isType('k')) {
+                        Point pos = new Point(j, i);
+                        if (piece.isColor('w')) {
+                            wKing = pos;
+                        } else {
+                            bKing = pos;
+                        }
+                    }
+                    pieces[j][i] = piece;
                     if (buffer[2] == '\r') {
                         reader.read();
                     }
@@ -36,30 +57,33 @@ public class Board {
     public Board(Board previous) {
         this.previous = previous;
         this.pieces = new Piece[8][8];
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces[i].length; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
                 pieces[i][j] = previous.pieces[i][j].clone();
             }
         }
+        bKing = previous.bKing;
+        wKing = previous.wKing;
     }
 
     public Board getPrevious() {
         return previous;
     }
 
-    public Collection<Point> getMoves(Point position) {
+    public Collection<Point> getMoves(Point point) {
+        return getMoves(point.x, point.y);
+    }
+
+    public Collection<Point> getMoves(int x, int y) {
         ArrayList<Point> moves = new ArrayList<>();
-        Piece piece = get(position);
+        Piece piece = pieces[x][y];
         char type = piece.getType();
         char color = piece.getColor();
-        int x = position.x;
-        int y = position.y;
-
         int dir = color == 'w' ? 1 : -1;
 
         //pawn
         if (type == 'p') {
-            Piece front = get(new Point(x, y + dir));
+            Piece front = get(x, y + dir);
             if (front != null && front.isColor('n')) {
                 moves.add(new Point(x, y + dir));
                 Piece frontFront = get(new Point(x, y + dir * 2));
@@ -68,12 +92,12 @@ public class Board {
                 }
             }
 
-            Piece frontRight = get(new Point(x + 1, y + dir));
+            Piece frontRight = get(x + 1, y + dir);
             if (frontRight != null && frontRight.getColor() != 'n' && frontRight.getColor() != color) {
                 moves.add(new Point(x + 1, y + dir));
             }
 
-            Piece frontLeft = get(new Point(x - 1, y + dir));
+            Piece frontLeft = get(x - 1, y + dir);
             if (frontLeft != null && frontLeft.getColor() != 'n' && frontLeft.getColor() != color) {
                 moves.add(new Point(x - 1, y + dir));
             }
@@ -86,7 +110,7 @@ public class Board {
             int xp = x + 1;
             int yp = y + 1;
             while (xp < 8 && xp >= 0 && yp < 8 && yp >= 0) {
-                Piece square = get(new Point(xp, yp));
+                Piece square = get(xp, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, yp));
                 }
@@ -100,7 +124,7 @@ public class Board {
             xp = x + 1;
             yp = y - 1;
             while (xp < 8 && xp >= 0 && yp < 8 && yp >= 0) {
-                Piece square = get(new Point(xp, yp));
+                Piece square = get(xp, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, yp));
                 }
@@ -114,7 +138,7 @@ public class Board {
             xp = x - 1;
             yp = y + 1;
             while (xp < 8 && xp >= 0 && yp < 8 && yp >= 0) {
-                Piece square = get(new Point(xp, yp));
+                Piece square = get(xp, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, yp));
                 }
@@ -128,7 +152,7 @@ public class Board {
             xp = x - 1;
             yp = y - 1;
             while (xp < 8 && xp >= 0 && yp < 8 && yp >= 0) {
-                Piece square = get(new Point(xp, yp));
+                Piece square = get(xp, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, yp));
                 }
@@ -142,18 +166,7 @@ public class Board {
 
         //knight
         if (type == 'n') {
-            java.util.List<Point> crds = java.util.List.of(
-                    new Point(2, 1),
-                    new Point(2, -1),
-                    new Point(1, 2),
-                    new Point (-1, 2),
-                    new Point(-2, 1),
-                    new Point(-2, -1),
-                    new Point(1, -2),
-                    new Point(-1, -2)
-            );
-
-            for (Point crd: crds) {
+            for (Point crd: knight) {
                 Point point = new Point(x + crd.x, y + crd.y);
                 Piece square = get(point);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
@@ -166,7 +179,7 @@ public class Board {
         if (type == 'r' || type == 'q') {
             int xp = x + 1;
             while (xp < 8 && xp >= 0) {
-                Piece square = get(new Point(xp, y));
+                Piece square = get(xp, y);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, y));
                 }
@@ -178,7 +191,7 @@ public class Board {
 
             xp = x - 1;
             while (xp < 8 && xp >= 0) {
-                Piece square = get(new Point(xp, y));
+                Piece square = get(xp, y);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(xp, y));
                 }
@@ -190,7 +203,7 @@ public class Board {
 
             int yp = y + 1;
             while (yp < 8 && yp >= 0) {
-                Piece square = get(new Point(x, yp));
+                Piece square = get(x, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(x, yp));
                 }
@@ -202,7 +215,7 @@ public class Board {
 
             yp = y - 1;
             while (yp < 8 && yp >= 0) {
-                Piece square = get(new Point(x, yp));
+                Piece square = get(x, yp);
                 if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                     moves.add(new Point(x, yp));
                 }
@@ -217,7 +230,7 @@ public class Board {
             for (int i = -1; i <= 1; i++) {
                 for (int j = -1; j <= 1; j++) {
                     if (i != 0 || j != 0) {
-                        Piece square = get(new Point(x + i, y + j));
+                        Piece square = get(x + i, y + j);
                         if (square != null && (square.isColor('n') || square.isColor(invert(color)))) {
                             moves.add(new Point(x + i, y + j));
                         }
@@ -246,6 +259,22 @@ public class Board {
                 move(new Point(7, y), new Point(5, y));
             }
         } else {
+            Piece piece = pieces[origin.x][origin.y];
+            if (piece.isType('k')) {
+                if (piece.isColor('w')) {
+                    wKing = dest;
+                } else {
+                    bKing = dest;
+                }
+            }
+            Piece destP = pieces[dest.x][dest.y];
+            if (destP.isType('k')) {
+                if (destP.isColor('w')) {
+                    wKing = null;
+                } else {
+                    bKing = null;
+                }
+            }
             set(dest, get(origin));
             set(origin, new Piece('n', 'a'));
         }
@@ -260,8 +289,8 @@ public class Board {
         for (int ii = 0; ii < pieces.length; ii++) {
             for (int jj = 0; jj < pieces[ii].length; jj++) {
                 if (ii != i || jj != j) {
-                    Piece attacker = get(new Point(ii, jj));
-                    if (attacker.isColor(invert(color)) && getMoves(new Point(ii, jj)).contains(new Point(i, j))) {
+                    Piece attacker = pieces[ii][jj];
+                    if (attacker.isColor(invert(color)) && getMoves(ii, jj).contains(new Point(i, j))) {
                         return true;
                     }
                 }
@@ -271,15 +300,7 @@ public class Board {
     }
 
     public Point getKing(char color) {
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces[i].length; j++) {
-                Piece piece = get(new Point(i, j));
-                if (piece != null && piece.isColor(color) && piece.isType('k')) {
-                    return new Point(i, j);
-                }
-            }
-        }
-        return null;
+        return color == 'b' ? bKing : wKing;
     }
 
     public boolean checkmate(char color) {
@@ -299,7 +320,6 @@ public class Board {
                     }
                 }
             }
-
             return true;
         } else {
             return false;
@@ -310,11 +330,15 @@ public class Board {
         return color == 'b' ? 'w' : 'b';
     }
 
-    public Piece get(Point point) {
-        if (point.y < 8 && point.y >= 0 && point.x < 8 && point.x >= 0) {
-            return pieces[point.x][point.y];
+    public Piece get(int x, int y) {
+        if (y < 8 && y >= 0 && x < 8 && x >= 0) {
+            return pieces[x][y];
         }
         return null;
+    }
+
+    public Piece get(Point point) {
+        return get(point.x, point.y);
     }
 
     public Board set(Point point, Piece piece) {
@@ -332,13 +356,12 @@ public class Board {
         }
         double value = 0;
         double vision = 0;
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces[i].length; j++) {
-                Point point = new Point(i, j);
-                Piece piece = get(point);
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                Piece piece = pieces[i][j];
                 if (piece.isColor(color)) {
                     value += piece.getValue();
-                    vision += getMoves(point).size();
+                    vision += getMoves(i, j).size();
                 }
             }
         }
@@ -349,15 +372,15 @@ public class Board {
         int waiting = 0;
         AtomicInteger done = new AtomicInteger();
         HashMap<Move, Double> moves = new HashMap<>();
-        for (int i = 0; i < pieces.length; i++) {
-            for (int j = 0; j < pieces[i].length; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
                 Point point = new Point(i, j);
                 Piece piece = get(point);
                 if (piece.isColor(color)) {
                     for (Point move: getMoves(point)) {
                         waiting++;
                         ForkJoinPool.commonPool().execute(() -> {
-                            double value = evaluateTree(next().move(point, move), color, invert(color), 1, 4);
+                            double value = evaluateTree(next().move(point, move), color, invert(color), 1, 5);
                             moves.put(new Move(point, move), value);
                             done.incrementAndGet();
                         });
@@ -386,12 +409,12 @@ public class Board {
             return board.evaluate(oColor);
         }
 
-        for (int i = 0; i < board.pieces.length; i++) {
-            for (int j = 0; j < board.pieces[i].length; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
                 Point point = new Point(i, j);
-                Piece piece = board.get(point);
+                Piece piece = board.pieces[i][j];
                 if (piece.isColor(color)) {
-                    for (Point move: board.getMoves(point)) {
+                    for (Point move: board.getMoves(i, j)) {
                         mean += evaluateTree(board.next().move(point, move), oColor, invert(color), depth + 1, maxDepth);
                         samples++;
                     }
