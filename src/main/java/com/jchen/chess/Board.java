@@ -112,7 +112,25 @@ public class Board {
                 moves.add(new Point(x - 1, y + dir));
             }
 
-            //Add en-passant later
+            if ((color == 'b' && y == 3) || (color == 'w' && y == 4)) {
+                Piece right = get(x + 1, y);
+                if (right != null && right.isType('p') && !right.isColor(color)) {
+                    Piece og = previous.get(x + 1, y);
+                    Piece upOne = previous.get(x + 1, y+dir);
+                    if (og == null || og.isColor('n'))
+                        if (upOne == null || upOne.isColor('n'))
+                            moves.add(new Point(x+1, y+dir));
+                }
+
+                Piece left = get(x - 1, y);
+                if (left != null && left.isType('p') && !left.isColor(color)) {
+                    Piece og = previous.get(x - 1, y);
+                    Piece upOne = previous.get(x - 1, y+dir);
+                    if (og == null || og.isColor('n'))
+                        if (upOne == null || upOne.isColor('n'))
+                            moves.add(new Point(x - 1, y+dir));
+                }
+            }
         }
 
         //bishop
@@ -312,8 +330,13 @@ public class Board {
                     }
                 }
             }
-            if (piece.isType('p') && (dest.y == 0 || dest.y == 7)) {
-                pieces[origin.x][origin.y] = new Piece(piece.getColor(), 'q');
+            if (piece.isType('p')) {
+                if (dest.y == 0 || dest.y == 7){
+                    pieces[origin.x][origin.y] = new Piece(piece.getColor(), 'q');
+                }
+                if (destP.isColor('n') && dest.x != origin.x) {
+                    pieces[dest.x][origin.y] = new Piece('n', 'a');
+                }
             }
             set(dest, get(origin));
             set(origin, new Piece('n', 'a'));

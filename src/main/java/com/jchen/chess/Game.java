@@ -91,7 +91,8 @@ public class Game extends JPanel implements MouseListener {
                     } else {
                         selectedPoint = scaled;
                         paint(getGraphics());
-                        board.bestMove('b');
+//                        board.bestMove('b');
+                        currentColor = Board.invert(currentColor);
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");
                         }
