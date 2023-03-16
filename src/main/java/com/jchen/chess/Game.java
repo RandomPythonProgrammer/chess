@@ -128,6 +128,8 @@ public class Game extends JPanel implements MouseListener {
                         Move move = board.bestMove('b');
                         if (move != null) {
                             board = board.next(move);
+                        } else {
+                            System.out.println("out of moves");
                         }
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");

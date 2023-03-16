@@ -465,32 +465,86 @@ public class Board {
             return 0.1;
         }
         double value = 0;
+
+        double attackers = 0;
+        double attackerValue = 0;
+        double defenders = 0;
+        double defenerValue = 0;
+
         double vision = 0;
         int side = color == 'w' ? 0 : 7;
         boolean castled = color == 'b' ? bc : wc;
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 Piece piece = pieces[i][j];
+                Collection<Point> moves = getMoves(i, j);
+                if (moves.contains(move.end)) {
+                    if (piece.isColor(color)) {
+                        defenders++;
+                        defenerValue += piece.getValue();
+                    } else {
+                        attackers++;
+                        attackerValue += piece.getValue();
+                    }
+                }
                 if (piece.isColor(color)) {
                     value += piece.getValue();
-                    vision += getMoves(i, j).size();
+                    vision += moves.size() * (piece.isType('q') ? 0.25 : 1) * (piece.isType('b') ? 0.5 : 1);
                     Piece ref = REFERENCE_BOARD.pieces[i][j];
                     boolean isPawn = piece.isType('p');
+                    int back = (color == 'b' ? 1 : -1);
                     if (isPawn) {
-                        activePieces += (Math.abs(j - side) + (Math.abs(i - 3.5))) / 14d;
+                        activePieces += (Math.abs(j - side)) / (5 * Math.abs(i - 3.5));
+                        Piece left = get(i - 1, j);
+                        Piece right = get(i + 1, j);
+                        Piece behind = get(i, j + back);
+                        Piece leftBehind = get(i - 1, j + back);
+                        Piece rightBehind = get(i + 1, j + back);
+                        if (left != null && !left.isType('p'))
+                            activePieces += 0.05;
+                        if (right != null && !right.isType('p'))
+                            activePieces += 0.05;
+                        if (behind != null && behind.isType('p')) {
+                            activePieces -= 0.1;
+                        }
+                        if (leftBehind != null && leftBehind.isType('p')) {
+                            activePieces += 0.05;
+                        } else if (rightBehind != null && rightBehind.isType('p')) {
+                            activePieces += 0.05;
+                        }
                     }
                     if (ref.equals(get(move.start)) && !ref.equals(get(move.end))) {
                         if (!isPawn) {
-                            if (getMoves(i, j).size() > REFERENCE_BOARD.getMoves(i, j).size())
-                                activePieces += 0.75d / (1 + Math.abs(3.5 - piece.getValue()));
+                            if (moves.size() > REFERENCE_BOARD.getMoves(i, j).size())
+                                activePieces += 2.5d / (1 + Math.abs(3.5 - piece.getValue()));
+                        }
+                        if (!piece.isType('k')) {
+                            activePieces += 0.5 / Math.abs(i - 3.5);
                         } else {
-                            activePieces += 0.75 / Math.abs(i - 3.5);
+                            if (!castled) {
+                                activePieces -= 2.5 * Math.abs(side - j);
+                            }
                         }
                     }
                 }
             }
         }
-        return Math.pow(value, 1.35) + vision * 0.015 + activePieces + (castled ? 1 : 0);
+        double trade = 0;
+        Piece end = get(move.end);
+        if (move != null && end != null) {
+            if (attackers > defenders) {
+                trade -= end.getValue();
+                trade += attackerValue - defenerValue; //change this
+            }
+        }
+        if (move != null) {
+            if (color == 'b' && move.start.y < move.end.y) {
+                activePieces -= move.end.y - move.start.y;
+            } else if (color == 'w' && move.start.y > move.end.y) {
+                activePieces -= move.start.y - move.end.y;
+            }
+        }
+        return value + vision * 0.045 + activePieces + (castled ? 1.5 : 0) + trade;
     }
 
     public Move bestMove(char color) {
@@ -507,8 +561,10 @@ public class Board {
                         ForkJoinPool.commonPool().execute(() -> {
                             double current = evaluate(color) / evaluate(invert(color));
                             Board next = next(new Move(point, move));
-                            double value = evaluateTree(next, current, color, invert(color), 1, 4);
-                            moves.put(new Move(point, move), value);
+                            if (!next.check(color)) {
+                                double value = evaluateTree(next, current, color, invert(color), 1, 3);
+                                moves.put(new Move(point, move), value);
+                            }
                             done.incrementAndGet();
                         });
                     }
@@ -536,7 +592,7 @@ public class Board {
         boolean isColor = color == oColor;
         double val = board.evaluate(oColor) / board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
-        if (depth >= maxDepth || (isColor && val / last < 0.85) || (!isColor && last / val < 0.85)) {
+        if (depth > maxDepth || (isColor && val / last < 0.85) || (!isColor && last / val < 0.85)) {
             return val;
         }
 
@@ -546,8 +602,11 @@ public class Board {
                 Piece piece = board.pieces[i][j];
                 if (piece.isColor(color)) {
                     for (Point move : board.getMoves(i, j)) {
-                        double eval = evaluateTree(board.next(new Move(point, move)), val, oColor, invert(color), depth + 1, maxDepth);
-                        value = (isColor ? Math.max(eval, value) : Math.min(eval, value));
+                        Board next = board.next(new Move(point, move));
+                        if (!next.check(color)) {
+                            double eval = evaluateTree(next, val, oColor, invert(color), depth + 1, maxDepth);
+                            value = (isColor ? Math.max(eval, value) : Math.min(eval, value));
+                        }
                     }
                 }
             }
