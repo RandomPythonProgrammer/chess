@@ -114,6 +114,8 @@ public class Game extends JPanel implements MouseListener {
                         board.bestMove('b');
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");
+                        } else if (board.statemate(currentColor)) {
+                            System.out.println("stalemate");
                         }
                     }
                     System.out.printf("Black evaluation: %f\n", board.evaluate('b'));

@@ -404,6 +404,29 @@ public class Board {
         }
     }
 
+    public boolean statemate(char color) {
+        if (!check(color)) {
+            for (int i = 0; i < pieces.length; i++) {
+                for (int j = 0; j < pieces[i].length; j++) {
+                    Point point = new Point(i, j);
+                    Piece piece = get(point);
+                    if (piece != null && piece.isColor(color)) {
+                        for (Point move : getMoves(point)) {
+                            Board next = next();
+                            next.move(point, move);
+                            if (!next.check(color)) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public static char invert(char color) {
         return color == 'b' ? 'w' : 'b';
     }
@@ -433,6 +456,8 @@ public class Board {
         Point king = getKing(color);
         if (king == null || checkmate(color)) {
             return 0;
+        } else if (statemate(color)) {
+            return 0.1;
         }
         double value = 0;
         double vision = 0;
