@@ -72,4 +72,10 @@ public class Piece {
     public String toString() {
         return String.valueOf(color) + type;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        Piece otherPiece = (Piece) other;
+        return otherPiece.color == color && otherPiece.type == type;
+    }
 }

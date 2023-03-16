@@ -24,6 +24,7 @@ public class Game extends JPanel implements MouseListener {
     public Game() {
         selectedPoint = null;
         addMouseListener(this);
+
         getInputMap().put(KeyStroke.getKeyStroke('z'), "undo");
         getActionMap().put("undo", new AbstractAction() {
             @Override
@@ -33,6 +34,15 @@ public class Game extends JPanel implements MouseListener {
                 }
             }
         });
+
+        getInputMap().put(KeyStroke.getKeyStroke('r'), "restart");
+        getActionMap().put("restart", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                board = new Board();
+            }
+        });
+
         setVisible(true);
         board = new Board();
         new Timer(0, e -> repaint()).start();

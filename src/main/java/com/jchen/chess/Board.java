@@ -11,11 +11,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Board {
     private Piece[][] pieces;
+    private final static Board REFRERENCE = new Board();
     private Board previous;
     private Point wKing;
     private Point bKing;
     private boolean brc, blc;
     private boolean wrc, wlc;
+    private boolean wc, bc;
     private static final java.util.List<Point> knight = java.util.List.of(
             new Point(2, 1),
             new Point(2, -1),
@@ -58,6 +60,8 @@ public class Board {
         brc = true;
         wlc = true;
         wrc = true;
+        bc = false;
+        wc = false;
     }
 
     public Board(Board previous) {
@@ -74,6 +78,8 @@ public class Board {
         brc = previous.brc;
         wlc = previous.wlc;
         wrc = previous.wrc;
+        wc = previous.wc;
+        bc = previous.bc;
     }
 
     public Board getPrevious() {
@@ -295,6 +301,11 @@ public class Board {
                 move(origin, new Point(6, y));
                 move(new Point(7, y), new Point(5, y));
             }
+            if (piece.isColor('b')) {
+                bc = true;
+            } else {
+                wc = true;
+            }
         } else {
             if (piece.isType('k')) {
                 if (piece.isColor('w')) {
@@ -419,11 +430,14 @@ public class Board {
 
     public double evaluate(char color) {
         double activePieces = 0;
-        if (getKing(color) == null || checkmate(color)) {
+        Point king = getKing(color);
+        if (king == null || checkmate(color)) {
             return -100;
         }
         double value = 0;
         double vision = 0;
+        int side = color == 'w' ? 0: 7;
+        boolean castled = color == 'b' ? bc : wc;
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 Piece piece = pieces[i][j];
@@ -431,14 +445,16 @@ public class Board {
                     value += piece.getValue();
                     vision += getMoves(i, j).size();
                     if (!piece.isType('p')) {
-                        if (vision > 2) {
-                            activePieces++;
+                        if (!piece.equals(REFRERENCE.pieces[i][j])) {
+                            activePieces += 1d/(1 + Math.abs(4 - piece.getValue()));
                         }
+                    } else {
+                        activePieces += Math.abs(j - side)/5d;
                     }
                 }
             }
         }
-        return value + vision * 0.05 + activePieces;
+        return value + vision * 0.05 + activePieces + (castled ? 1 : 0);
     }
 
     public void bestMove(char color) {
@@ -454,8 +470,11 @@ public class Board {
                         waiting++;
                         ForkJoinPool.commonPool().execute(() -> {
                             double current = evaluate(color)/evaluate(invert(color));
-                            double value = evaluateTree(next().move(point, move), current, color, invert(color), 1, 4);
-                            moves.put(new Move(point, move), value);
+                            Board next = next().move(point, move);
+                            if (!next.check(color)) {
+                                double value = evaluateTree(next, current, color, invert(color), 1, 4);
+                                moves.put(new Move(point, move), value);
+                            }
                             done.incrementAndGet();
                         });
                     }
@@ -478,7 +497,7 @@ public class Board {
 
     public static double evaluateTree(Board board, double last, char oColor, char color, int depth, int maxDepth) {
         boolean isColor = color == oColor;
-        double val = board.evaluate(oColor)/board.evaluate(invert(oColor));
+        double val = board.evaluate(oColor) - board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
         if (depth >= maxDepth || val/last < 0.75) {
             return val;
