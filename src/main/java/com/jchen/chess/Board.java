@@ -478,7 +478,7 @@ public class Board {
             for (int j = 0; j < 8; j++) {
                 Piece piece = pieces[i][j];
                 Collection<Point> moves = getMoves(i, j);
-                if (moves.contains(move.end)) {
+                if (move != null && moves.contains(move.end)) {
                     if (piece.isColor(color)) {
                         defenders++;
                         defenerValue += piece.getValue();
@@ -494,7 +494,7 @@ public class Board {
                     boolean isPawn = piece.isType('p');
                     int back = (color == 'b' ? 1 : -1);
                     if (isPawn) {
-                        activePieces += (Math.abs(j - side)) / (5 * Math.abs(i - 3.5));
+                        activePieces += (Math.abs(j - side)) / (6 * Math.abs(i - 3.5));
                         Piece left = get(i - 1, j);
                         Piece right = get(i + 1, j);
                         Piece behind = get(i, j + back);
@@ -513,13 +513,13 @@ public class Board {
                             activePieces += 0.05;
                         }
                     }
-                    if (ref.equals(get(move.start)) && !ref.equals(get(move.end))) {
+                    if (move != null && ref.equals(get(move.start)) && !ref.equals(get(move.end))) {
                         if (!isPawn) {
                             if (moves.size() > REFERENCE_BOARD.getMoves(i, j).size())
                                 activePieces += 2.5d / (1 + Math.abs(3.5 - piece.getValue()));
                         }
                         if (!piece.isType('k')) {
-                            activePieces += 0.5 / Math.abs(i - 3.5);
+                            activePieces += 0.5 / (Math.abs(i - 3) + 1);
                         } else {
                             if (!castled) {
                                 activePieces -= 2.5 * Math.abs(side - j);
@@ -530,8 +530,8 @@ public class Board {
             }
         }
         double trade = 0;
-        Piece end = get(move.end);
-        if (move != null && end != null) {
+        Piece end;
+        if (move != null && (end = get(move.end)) != null) {
             if (attackers > defenders) {
                 trade -= end.getValue();
                 trade += attackerValue - defenerValue; //change this
@@ -544,7 +544,7 @@ public class Board {
                 activePieces -= move.start.y - move.end.y;
             }
         }
-        return value + vision * 0.045 + activePieces + (castled ? 1.5 : 0) + trade;
+        return Math.pow(value, 1.25) + vision * 0.045 + activePieces + (castled ? 1.5 : 0) + trade;
     }
 
     public Move bestMove(char color) {
@@ -592,7 +592,7 @@ public class Board {
         boolean isColor = color == oColor;
         double val = board.evaluate(oColor) / board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
-        if (depth > maxDepth || (isColor && val / last < 0.85) || (!isColor && last / val < 0.85)) {
+        if (depth > maxDepth) {
             return val;
         }
 

@@ -51,7 +51,8 @@ public class Game extends JPanel implements MouseListener {
         setVisible(true);
         board = new Board();
         new Timer(0, e -> repaint()).start();
-        currentColor = 'w';
+        board = board.next(board.bestMove('w'));
+        currentColor = 'b';
     }
 
     @Override
@@ -125,7 +126,7 @@ public class Game extends JPanel implements MouseListener {
                     } else {
                         selectedPoint = scaled;
                         paint(getGraphics());
-                        Move move = board.bestMove('b');
+                        Move move = board.bestMove('w');
                         if (move != null) {
                             board = board.next(move);
                         } else {
