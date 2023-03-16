@@ -2,9 +2,7 @@ package com.jchen.chess;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.awt.event.*;
 import java.util.Collection;
 
 public class Game extends JPanel implements MouseListener {
@@ -16,6 +14,13 @@ public class Game extends JPanel implements MouseListener {
     public static void main(String[] args) {
         Game game = new Game();
         JFrame frame = new JFrame();
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                super.windowClosing(e);
+                System.exit(0);
+            }
+        });
         frame.add(game);
         frame.pack();
         frame.setVisible(true);
@@ -74,10 +79,18 @@ public class Game extends JPanel implements MouseListener {
             graphics.setColor(graphics.getColor().equals(Color.GREEN) ? Color.WHITE : Color.GREEN);
         }
 
+        graphics.setColor(Color.RED);
+        Move move = board.getMove();
+        if (move != null) {
+            Point start = move.start;
+            Point end = move.end;
+            graphics.fillOval(start.x * 45 + (45-10)/2, (7 - start.y) * 45 + (45-10)/2, 10, 10);
+            graphics.drawOval(end.x * 45, 45 * (7 - end.y), 45, 45);
+        }
+
         if (selectedPoint != null) {
             double x = selectedPoint.x * 45;
             double y = selectedPoint.y * 45;
-            graphics.setColor(Color.RED);
             graphics.drawOval((int) x, (int) ((45 * 7) - y), 45, 45);
         }
     }
@@ -94,16 +107,15 @@ public class Game extends JPanel implements MouseListener {
                 boolean cCheck = moves.contains(new Point(-1, 0)) || moves.contains(new Point(0, -1));
 
                 if (canMove || (rookCheck && cCheck)) {
-                    board = board.next();
                     if (cCheck) {
                        if (scaled.x > selectedPoint.x) {
-                            board.move(selectedPoint, new Point(0, -1));
+                            board = board.next(new Move(selectedPoint, new Point(0, -1)));
                        } else  {
-                           board.move(selectedPoint, new Point(-1, 0));
+                           board = board.next(new Move(selectedPoint, new Point(-1, 0)));
                        }
                         selectedPoint = scaled;
                     } else {
-                        board.move(selectedPoint, scaled);
+                        board = board.next(new Move(selectedPoint, scaled));
                         selectedPoint = scaled;
                     }
                     if (board.check(currentColor)) {
@@ -111,7 +123,10 @@ public class Game extends JPanel implements MouseListener {
                     } else {
                         selectedPoint = scaled;
                         paint(getGraphics());
-                        board.bestMove('b');
+                        Move move = board.bestMove('b');
+                        if (move != null) {
+                            board = board.next(move);
+                        }
                         if (board.checkmate(currentColor)) {
                             System.out.println("checkmate");
                         } else if (board.statemate(currentColor)) {

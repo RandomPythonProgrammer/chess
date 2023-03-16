@@ -76,6 +76,6 @@ public class Piece {
     @Override
     public boolean equals(Object other) {
         Piece otherPiece = (Piece) other;
-        return otherPiece.color == color && otherPiece.type == type;
+        return otherPiece != null && otherPiece.color == color && otherPiece.type == type;
     }
 }

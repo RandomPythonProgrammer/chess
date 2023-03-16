@@ -11,13 +11,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Board {
     private Piece[][] pieces;
-    private final static Board REFRERENCE = new Board();
+    private final static Board REFERENCE_BOARD = new Board();
     private Board previous;
     private Point wKing;
     private Point bKing;
     private boolean brc, blc;
     private boolean wrc, wlc;
     private boolean wc, bc;
+    private Move move;
     private static final java.util.List<Point> knight = java.util.List.of(
             new Point(2, 1),
             new Point(2, -1),
@@ -64,7 +65,7 @@ public class Board {
         wc = false;
     }
 
-    public Board(Board previous) {
+    public Board(Board previous, Move move) {
         this.previous = previous;
         this.pieces = new Piece[8][8];
         for (int i = 0; i < 8; i++) {
@@ -80,6 +81,12 @@ public class Board {
         wrc = previous.wrc;
         wc = previous.wc;
         bc = previous.bc;
+        move(move.start, move.end);
+        this.move = move;
+    }
+
+    public Move getMove() {
+        return move;
     }
 
     public Board getPrevious() {
@@ -276,13 +283,13 @@ public class Board {
             boolean canRight = (color == 'b' ? brc : wrc);
 
             if (!check && canLeft && pieces[0][y].isType('r') && pieces[1][y].isColor('n') && pieces[2][y].isColor('n') && pieces[3][y].isColor('n')) {
-                if (!next().move(new Point(x, y), new Point(x-1, y)).check(color))
-                    if (!next().move(new Point(x-1, y), new Point(x-2, y)).check(color))
+                if (!next(new Move(x, y,x - 1, y)).check(color))
+                    if (!next(new Move(x-1, y, x-2, y)).check(color))
                             moves.add(new Point(-1, 0));
             }
             if (!check && canRight && pieces[7][y].isType('r') && pieces[5][y].isColor('n') && pieces[6][y].isColor('n')) {
-                if (!next().move(new Point(x, y), new Point(x+1, y)).check(color))
-                    if (!next().move(new Point(x+1, y), new Point(x+2, y)).check(color))
+                if (!next(new Move(x, y,x+1, y)).check(color))
+                    if (!next(new Move(x+1, y, x+2, y)).check(color))
                             moves.add(new Point(0, -1));
             }
         }
@@ -389,8 +396,7 @@ public class Board {
                     Piece piece = get(point);
                     if (piece != null && piece.isColor(color)) {
                         for (Point move : getMoves(point)) {
-                            Board next = next();
-                            next.move(point, move);
+                            Board next = next(new Move(point, move));
                             if (!next.check(color)) {
                                 return false;
                             }
@@ -412,8 +418,7 @@ public class Board {
                     Piece piece = get(point);
                     if (piece != null && piece.isColor(color)) {
                         for (Point move : getMoves(point)) {
-                            Board next = next();
-                            next.move(point, move);
+                            Board next = next(new Move(point, move));
                             if (!next.check(color)) {
                                 return false;
                             }
@@ -447,8 +452,8 @@ public class Board {
         return this;
     }
 
-    public Board next() {
-        return new Board(this);
+    public Board next(Move move) {
+        return new Board(this, move);
     }
 
     public double evaluate(char color) {
@@ -470,19 +475,21 @@ public class Board {
                     value += piece.getValue();
                     vision += getMoves(i, j).size();
                     if (!piece.isType('p')) {
-                        if (!piece.equals(REFRERENCE.pieces[i][j])) {
-                            activePieces += 1.5d/(1 + Math.abs(4 - piece.getValue()));
+                        Piece ref = REFERENCE_BOARD.pieces[i][j];
+                        if (ref.equals(get(move.start)) && !ref.equals(get(move.end)) ) {
+                            if (getMoves(i, j).size() > REFERENCE_BOARD.getMoves(i, j).size())
+                                activePieces += 2d/(1 + Math.abs(3.5 - piece.getValue()));
                         }
                     } else {
-                        activePieces += Math.abs(j - side)/5d;
+                        activePieces += Math.abs(j - side - 4)/(4 + Math.abs(i - 3.5));
                     }
                 }
             }
         }
-        return value + vision * 0.05 + activePieces + (castled ? 1.5 : 0);
+        return value + vision * 0.05 + activePieces + (castled ? 1 : 0);
     }
 
-    public boolean bestMove(char color) {
+    public Move bestMove(char color) {
         int waiting = 0;
         AtomicInteger done = new AtomicInteger();
         HashMap<Move, Double> moves = new HashMap<>();
@@ -495,7 +502,7 @@ public class Board {
                         waiting++;
                         ForkJoinPool.commonPool().execute(() -> {
                             double current = evaluate(color)/evaluate(invert(color));
-                            Board next = next().move(point, move);
+                            Board next = next(new Move(point, move));
                             if (!next.check(color)) {
                                 double value = evaluateTree(next, current, color, invert(color), 1, 4);
                                 moves.put(new Move(point, move), value);
@@ -518,9 +525,9 @@ public class Board {
             }
         }
         if (highest != null) {
-            move(highest.getKey().start, highest.getKey().end);
-            return true;
-        } return false;
+            return highest.getKey();
+        }
+        return null;
     }
 
     public static double evaluateTree(Board board, double last, char oColor, char color, int depth, int maxDepth) {
@@ -537,25 +544,12 @@ public class Board {
                 Piece piece = board.pieces[i][j];
                 if (piece.isColor(color)) {
                     for (Point move: board.getMoves(i, j)) {
-                        double eval = evaluateTree(board.next().move(point, move), val, oColor, invert(color), depth + 1, maxDepth);
+                        double eval = evaluateTree(board.next(new Move(point, move)), val, oColor, invert(color), depth + 1, maxDepth);
                         value = (isColor ? Math.max(eval, value) : Math.min(eval, value));
                     }
                 }
             }
         }
         return value;
-    }
-}
-class Move {
-    public Point start, end;
-    public Move(Point start, Point end) {
-        this.start = start;
-        this.end = end;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        Move other = (Move) obj;
-        return other.start.equals(start) && other.end.equals(end);
     }
 }
