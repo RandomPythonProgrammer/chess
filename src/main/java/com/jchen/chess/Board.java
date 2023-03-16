@@ -476,6 +476,9 @@ public class Board {
                     vision += getMoves(i, j).size();
                     Piece ref = REFERENCE_BOARD.pieces[i][j];
                     boolean isPawn = piece.isType('p');
+                    if (isPawn) {
+                        activePieces += (Math.abs(j - side) + (Math.abs(i - 3.5))) / 14d;
+                    }
                     if (ref.equals(get(move.start)) && !ref.equals(get(move.end))) {
                         if (!isPawn) {
                             if (getMoves(i, j).size() > REFERENCE_BOARD.getMoves(i, j).size())
@@ -535,7 +538,7 @@ public class Board {
         boolean isColor = color == oColor;
         double val = board.evaluate(oColor)/board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
-        if (depth >= maxDepth || val/last < 0.85) {
+        if (depth >= maxDepth || val / last < 0.75) {
             return val;
         }
 

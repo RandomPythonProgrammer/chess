@@ -104,15 +104,17 @@ public class Game extends JPanel implements MouseListener {
                 Collection<Point> moves = board.getMoves(selectedPoint);
                 boolean canMove = moves.contains(scaled);
                 boolean rookCheck = board.get(scaled).isType('r') && board.get(scaled).isColor(currentColor);
-                boolean cCheck = moves.contains(new Point(-1, 0)) || moves.contains(new Point(0, -1));
+                boolean leftCheck = moves.contains(new Point(-1, 0));
+                boolean rightCheck = moves.contains(new Point(0, -1));
+                boolean cCheck = leftCheck || rightCheck;
 
                 if (canMove || (rookCheck && cCheck)) {
                     if (cCheck) {
-                       if (scaled.x > selectedPoint.x) {
+                        if (scaled.x > selectedPoint.x && rightCheck) {
                             board = board.next(new Move(selectedPoint, new Point(0, -1)));
-                       } else  {
-                           board = board.next(new Move(selectedPoint, new Point(-1, 0)));
-                       }
+                        } else if (leftCheck) {
+                            board = board.next(new Move(selectedPoint, new Point(-1, 0)));
+                        }
                         selectedPoint = scaled;
                     } else {
                         board = board.next(new Move(selectedPoint, scaled));
