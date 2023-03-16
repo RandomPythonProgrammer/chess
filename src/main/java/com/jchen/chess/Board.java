@@ -471,7 +471,7 @@ public class Board {
                     vision += getMoves(i, j).size();
                     if (!piece.isType('p')) {
                         if (!piece.equals(REFRERENCE.pieces[i][j])) {
-                            activePieces += 1d/(1 + Math.abs(4 - piece.getValue()));
+                            activePieces += 1.5d/(1 + Math.abs(4 - piece.getValue()));
                         }
                     } else {
                         activePieces += Math.abs(j - side)/5d;
@@ -479,10 +479,10 @@ public class Board {
                 }
             }
         }
-        return value + vision * 0.05 + activePieces + (castled ? 1 : 0);
+        return value + vision * 0.05 + activePieces + (castled ? 1.5 : 0);
     }
 
-    public void bestMove(char color) {
+    public boolean bestMove(char color) {
         int waiting = 0;
         AtomicInteger done = new AtomicInteger();
         HashMap<Move, Double> moves = new HashMap<>();
@@ -517,14 +517,17 @@ public class Board {
                 highest = entry;
             }
         }
-        move(highest.getKey().start, highest.getKey().end);
+        if (highest != null) {
+            move(highest.getKey().start, highest.getKey().end);
+            return true;
+        } return false;
     }
 
     public static double evaluateTree(Board board, double last, char oColor, char color, int depth, int maxDepth) {
         boolean isColor = color == oColor;
         double val = board.evaluate(oColor)/board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
-        if (depth >= maxDepth || val/last < 0.75) {
+        if (depth >= maxDepth || val/last < 0.85) {
             return val;
         }
 
