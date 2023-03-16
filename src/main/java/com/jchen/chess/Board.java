@@ -474,19 +474,20 @@ public class Board {
                 if (piece.isColor(color)) {
                     value += piece.getValue();
                     vision += getMoves(i, j).size();
-                    if (!piece.isType('p')) {
-                        Piece ref = REFERENCE_BOARD.pieces[i][j];
-                        if (ref.equals(get(move.start)) && !ref.equals(get(move.end)) ) {
+                    Piece ref = REFERENCE_BOARD.pieces[i][j];
+                    boolean isPawn = piece.isType('p');
+                    if (ref.equals(get(move.start)) && !ref.equals(get(move.end))) {
+                        if (!isPawn) {
                             if (getMoves(i, j).size() > REFERENCE_BOARD.getMoves(i, j).size())
-                                activePieces += 2d/(1 + Math.abs(3.5 - piece.getValue()));
+                                activePieces += 0.75d / (1 + Math.abs(3.5 - piece.getValue()));
+                        } else {
+                            activePieces += 0.75 / Math.abs(i - 3.5);
                         }
-                    } else {
-                        activePieces += Math.abs(j - side - 4)/(4 + Math.abs(i - 3.5));
                     }
                 }
             }
         }
-        return value + vision * 0.05 + activePieces + (castled ? 1 : 0);
+        return Math.pow(value, 1.25) + vision * 0.015 + activePieces + (castled ? 1 : 0);
     }
 
     public Move bestMove(char color) {
