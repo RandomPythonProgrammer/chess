@@ -432,7 +432,7 @@ public class Board {
         double activePieces = 0;
         Point king = getKing(color);
         if (king == null || checkmate(color)) {
-            return -100;
+            return 0;
         }
         double value = 0;
         double vision = 0;
@@ -497,7 +497,7 @@ public class Board {
 
     public static double evaluateTree(Board board, double last, char oColor, char color, int depth, int maxDepth) {
         boolean isColor = color == oColor;
-        double val = board.evaluate(oColor) - board.evaluate(invert(oColor));
+        double val = board.evaluate(oColor)/board.evaluate(invert(oColor));
         double value = isColor ? Double.MIN_VALUE : Double.MAX_VALUE;
         if (depth >= maxDepth || val/last < 0.75) {
             return val;
